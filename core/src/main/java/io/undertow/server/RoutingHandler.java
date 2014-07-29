@@ -39,6 +39,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class RoutingHandler implements HttpHandler {
 
     private final Map<HttpString, PathTemplateMatcher<RoutingMatch>> matches = new CopyOnWriteMap<>();
+    private final PathTemplateMatcher<RoutingMatch> allMethodsMatcher = new PathTemplateMatcher<>();
 
     private volatile HttpHandler fallbackHandler = ResponseCodeHandler.HANDLE_404;
     private volatile HttpHandler invalidMethodHandler = ResponseCodeHandler.HANDLE_405;
@@ -67,13 +68,9 @@ public class RoutingHandler implements HttpHandler {
         }
         PathTemplateMatcher.PathMatchResult<RoutingMatch> match = matcher.match(exchange.getRelativePath());
         if (match == null) {
-            // Check all PathTemplateMatchers to see if there is a match
-            // with a different HttpMethod
-            for (PathTemplateMatcher<RoutingMatch> value : matches.values()) {
-                if (value.match(exchange.getRelativePath()) != null) {
-                    invalidMethodHandler.handleRequest(exchange);
-                    return;
-                }
+            if (allMethodsMatcher.match(exchange.getRelativePath()) != null) {
+                invalidMethodHandler.handleRequest(exchange);
+                return;
             }
             fallbackHandler.handleRequest(exchange);
             return;
@@ -110,9 +107,14 @@ public class RoutingHandler implements HttpHandler {
         if (res == null) {
             matcher.add(template, res = new RoutingMatch());
         }
+        if (allMethodsMatcher.get(template) == null) {
+            allMethodsMatcher.add(template, res);
+        }
         res.defaultHandler = handler;
         return this;
     }
+
+
 
     public synchronized RoutingHandler get(final String template, HttpHandler handler) {
         return add(Methods.GET, template, handler);
@@ -143,6 +145,9 @@ public class RoutingHandler implements HttpHandler {
         if (res == null) {
             matcher.add(template, res = new RoutingMatch());
         }
+        if (allMethodsMatcher.get(template) == null) {
+            allMethodsMatcher.add(template, res);
+        }
         res.predicatedHandlers.add(new HandlerHolder(predicate, handler));
         return this;
     }
@@ -171,6 +176,7 @@ public class RoutingHandler implements HttpHandler {
                 matches.put(method, matcher = new PathTemplateMatcher<>());
             }
             matcher.addAll(entry.getValue());
+            allMethodsMatcher.addAll(entry.getValue());
         }
         return this;
     }

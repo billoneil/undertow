@@ -150,7 +150,9 @@ public class PathTemplateMatcher<T> {
     public synchronized PathTemplateMatcher<T> addAll(PathTemplateMatcher<T> pathTemplateMatcher) {
         for (Entry<String, Set<PathTemplateHolder>> entry : pathTemplateMatcher.getPathTemplateMap().entrySet()) {
             for (PathTemplateHolder pathTemplateHolder : entry.getValue()) {
-                add(pathTemplateHolder.template, pathTemplateHolder.value);
+                if (get(pathTemplateHolder.template.getTemplateString()) == null) {
+                    add(pathTemplateHolder.template, pathTemplateHolder.value);
+                }
             }
         }
         return this;
